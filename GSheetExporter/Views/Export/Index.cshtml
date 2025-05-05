@@ -4,15 +4,45 @@
 
 <h2>Export to Google Sheet</h2>
 
+<p>
+    This page allows you to export data to a Google Sheet using a service account.
+    Please upload your <strong>service account JSON file</strong> and provide the email address of the user you want to share the sheet with.
+</p>
+<p>
+    <strong>Note:</strong> Ensure that the service account has the necessary permissions to create and share Google Sheets.
+</p>
+<p>
+    <strong>Important:</strong> The service account must be added as a user to the Google Sheet you want to export to.
+    You can do this by sharing the sheet with the service account's email address.
+</p>
+<p>
+    <strong>Warning:</strong> Do not share your service account JSON file with anyone. It contains sensitive information.
+    Keep it secure and only use it in trusted environments.
+</p>
+
+<label><input type="radio" name="sheetMode"  value="new" checked onchange="toggleInputs()"> Create New Sheet</label>
+<label><input type="radio" name="sheetMode" value="existing" onchange="toggleInputs()"> Update Existing Sheet</label>
+
+<div id="emailDiv">
+    <label><strong>Email to Share With:</strong></label>
+    <input type="email" id="email" placeholder="user@example.com" />
+</div>
+
+<div id="spreadsheetIdDiv" style="display: none;">
+    <label><strong>Spreadsheet ID:</strong></label>
+    <input type="text" id="spreadsheetId" placeholder="1TuU32HdySmlhs...." />
+</div>
+
+<label><strong>JSON File :</strong></label>
 <input type="file" id="jsonUpload" />
-<br />
-<input type="email" id="email" placeholder="User Email to Share With" />
-<br />
 <button onclick="exportSheet()">Export</button>
+
+<div id="loading" style="display: none; color: green; font-weight: bold;">
+    Exporting to Google Sheets... Please wait.
+</div>
 
 <script>
     let serviceAccountJson = null;
-
     document.getElementById("jsonUpload").addEventListener("change", function (e) {
         const reader = new FileReader();
         reader.onload = function (event) {
@@ -21,27 +51,71 @@
         reader.readAsText(e.target.files[0]);
     });
 
+        function toggleInputs() {
+        const mode = document.querySelector('input[name="sheetMode"]:checked').value;
+
+        if (mode === "new") {
+            document.getElementById("emailDiv").style.display = "block";
+            document.getElementById("spreadsheetIdDiv").style.display = "none";
+        } else {
+            document.getElementById("emailDiv").style.display = "none";
+            document.getElementById("spreadsheetIdDiv").style.display = "block";
+        }
+    }
+
     function exportSheet() {
-        const shareWithEmail = document.getElementById("email").value;
-        console.log("Service account json : ");
-        console.log(serviceAccountJson);
+        if (!serviceAccountJson) {
+            alert("Please upload a valid service account JSON file.");
+            return;
+        }
+
+        if (document.querySelector('input[name="sheetMode"]:checked').value === "new" && !document.getElementById("email").value) {
+            alert("Please provide an email address to share the new sheet with.");
+            return;
+        }
+
+        if (document.querySelector('input[name="sheetMode"]:checked').value === "existing" && !document.getElementById("spreadsheetId").value) {
+            alert("Please provide a valid Spreadsheet ID.");
+            return;
+        }
+
+        document.getElementById("loading").style.display = "block"; // Show loading
+
+        const mode = document.querySelector('input[name="sheetMode"]:checked').value;
+        const email = document.getElementById("email").value;
+        const spreadsheetId = document.getElementById("spreadsheetId").value;
 
         fetch('/Export/ExportToSheet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 serviceAccountJson: JSON.stringify(serviceAccountJson),
-                shareWithEmail
+                shareWithEmail: mode === "new" ? email : null,
+                spreadsheetId: mode === "existing" ? spreadsheetId : null
             })
         })
         .then(res => res.json())
         .then(data => {
-            console.log(data);
-            if (data.sheetUrl) {
-                window.open(data.url, '_blank');
+
+            document.getElementById("loading").style.display = "none"; // Hide loading
+
+            if (data.url) {
+                document.getElementById("jsonUpload").value = "";
+                serviceAccountJson = null;
+                document.getElementById("spreadsheetId").value = "";
+
+                const confirmOpen = confirm("Google Sheet exported successfully.\nDo you want to open it?");
+                if (confirmOpen) {
+                    window.open(data.url, '_blank');
+                }
             } else {
                 alert('Something went wrong.');
             }
+        })
+        .catch(err => {
+            document.getElementById("loading").style.display = "none";
+            console.error(err);
+            alert('An error occurred during export.');
         });
     }
 </script>
