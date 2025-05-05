@@ -1,0 +1,47 @@
+﻿@{
+    ViewBag.Title = "Google Sheet Exporter";
+}
+
+<h2>Export to Google Sheet</h2>
+
+<input type="file" id="jsonUpload" />
+<br />
+<input type="email" id="email" placeholder="User Email to Share With" />
+<br />
+<button onclick="exportSheet()">Export</button>
+
+<script>
+    let serviceAccountJson = null;
+
+    document.getElementById("jsonUpload").addEventListener("change", function (e) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            serviceAccountJson = JSON.parse(event.target.result);
+        };
+        reader.readAsText(e.target.files[0]);
+    });
+
+    function exportSheet() {
+        const shareWithEmail = document.getElementById("email").value;
+        console.log("Service account json : ");
+        console.log(serviceAccountJson);
+
+        fetch('/Export/ExportToSheet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                serviceAccountJson: JSON.stringify(serviceAccountJson),
+                shareWithEmail
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            if (data.sheetUrl) {
+                window.open(data.url, '_blank');
+            } else {
+                alert('Something went wrong.');
+            }
+        });
+    }
+</script>
